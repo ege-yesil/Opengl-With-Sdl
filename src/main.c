@@ -10,6 +10,7 @@
 #include "camera.h"
 #include "util/vector.h"
 #include "object.h"
+#include "util/hashMap.h"
 
 float cube[] = {
     // positions          // normals           // texture coords
@@ -91,7 +92,24 @@ struct PointLight {
     float quadratic;
 }; 
 
+void test() {
+    HashMap map = makeHashMap(sizeof(VertexKey), sizeof(int));
+    map.hash = intHash;
+    map.equals = equalsVertexKeyHashMap;
+
+    VertexKey key = { 0, 2, 3 };
+    int val = 2;
+    addHashMap(&map, &key, &val);
+
+    size_t i = getHashMap(&map, &key);
+    printf("str: %d\n", *(int*)map.entries[i].val);
+
+
+    exit(69);
+}
+
 int main() {
+    test();
     float winWidth = 1080, winHeight = 800;
     SDL_Window *win = setupSDL(winWidth, winHeight);   
     
@@ -163,7 +181,7 @@ int main() {
     glm_translate_make(modelLight, lightPos);
     glUniformMatrix4fv(glGetUniformLocation(lightProgram, "model"), 1, GL_FALSE, modelLight[0]);
     
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
    
     // final touches
     srand(time(0));
