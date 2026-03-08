@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "hashMap.h"
 
@@ -30,16 +31,13 @@ bool equalsIntHashMap(void *key1, void *key2) {
     if (*(int*)key1 == *(int*)key2) return true;
     return false;
 }
+bool equalsVertexKeyHashMap(void *a, void *b) {
+    VertexKey *A = a;
+    VertexKey *B = b;
 
-bool equalsVertexKeyHashMap(void *key1, void *key2) {
-    VertexKey vkey1 = *(VertexKey*)key1;
-    VertexKey vkey2 = *(VertexKey*)key2;
-
-    if (vkey1.v != vkey2.v) return false;
-    if (vkey1.vt != vkey2.vt) return false;
-    if (vkey1.vn != vkey2.vn) return false;
-
-    return true;
+    return A->v  == B->v &&
+           A->vn == B->vn &&
+           A->vt == B->vt;
 }
 
 void resizeHashMap(HashMap *map, size_t capacity) {
@@ -48,6 +46,13 @@ void resizeHashMap(HashMap *map, size_t capacity) {
 
     map->entries = calloc(capacity, sizeof(MapEntry));
     map->capacity = capacity;
+    map->size = 0;
+
+    for (size_t i = 0; i < capacity; i++) {
+        map->entries[i].key = malloc(map->keyStride);
+        map->entries[i].val = malloc(map->valStride);
+        map->entries[i].occupation = EMPTY;
+    }
     for (size_t i = 0; i < oldCap; i++) {
         if (oldMap[i].occupation == OCCUPIED)
             addHashMap(map, oldMap[i].key, oldMap[i].val);
@@ -61,7 +66,7 @@ size_t getHashMap(HashMap *map, void *key) {
     while (map->entries[index].occupation != EMPTY) {
         if (map->equals(map->entries[index].key, key))
             return index;
-
+ 
         index = (index + 1) % map->capacity;
     }
     return SIZE_MAX; 
@@ -83,11 +88,11 @@ void addHashMap(HashMap *map, void *key, void *val) {
         index = (index + 1) % map->capacity;
     }
 
-    map->entries[index].key = key;
-    map->entries[index].val = val;
+    memcpy(map->entries[index].key, key, map->keyStride);
+    memcpy(map->entries[index].val, val, map->valStride);
     map->entries[index].occupation = OCCUPIED;
-
     map->size++;
+    
     if ((float)map->size / map->capacity > 0.7) resizeHashMap(map, map->capacity * 2);
 }
 
@@ -98,11 +103,12 @@ HashMap makeHashMap(size_t keySize, size_t valSize) {
     o.keyStride = keySize;
     o.valStride = valSize;
 
-    o.entries = malloc(64);
+    o.entries = malloc(64 * sizeof(MapEntry));
     for (int i = 0; i < 64; i++) {
         o.entries[i].key = malloc(keySize);
         o.entries[i].val = malloc(valSize);
-    } 
+        o.entries[i].occupation = EMPTY;
+    }
 
     return o;
 }

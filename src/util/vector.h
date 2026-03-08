@@ -11,7 +11,7 @@ typedef struct {
     size_t stride;
 } Vector;
 
-uint8_t makeVec(Vector *v, size_t size, size_t stride);
+Vector makeVec(size_t size, size_t stride);
 uint8_t reserveVec(Vector *v, size_t count);
 uint8_t pushVec(Vector *v, void *data, size_t count);
 uint8_t popVec(Vector *v, size_t count);

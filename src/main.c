@@ -104,8 +104,6 @@ void test() {
     size_t i = getHashMap(&map, &key);
     printf("str: %d\n", *(int*)map.entries[i].val);
 
-
-    exit(69);
 }
 
 int main() {
@@ -138,8 +136,8 @@ int main() {
     initMesh(&backpack);
     initMesh(&light);
    
-    unsigned int diffuseMap = loadTexture("assets/box.png");
-    unsigned int specularMap = loadTexture("assets/boxSpecular.png");
+    unsigned int diffuseMap = loadTexture("assets/diffuse.jpg");
+    unsigned int specularMap = loadTexture("assets/specular.jpg");
     Texture diffMap = { diffuseMap, TEX_DIFFUSE };
     Texture specMap = { specularMap, TEX_SPECULAR };
     pushVec(&backpack.textures, (void*)&diffMap, 1);
@@ -157,7 +155,7 @@ int main() {
     glUniform1f(glGetUniformLocation(objProgram, "light.linear"), 0.009f);
     glUniform1f(glGetUniformLocation(objProgram, "light.quadratic"), 0.032f);
 
-        glUseProgram(objProgram);
+    glUseProgram(objProgram);
     glUniform1i(glGetUniformLocation(objProgram, "material.diffuse"), 0);
     glUniform1i(glGetUniformLocation(objProgram, "material.specular"), 1);
 
@@ -181,7 +179,6 @@ int main() {
     glm_translate_make(modelLight, lightPos);
     glUniformMatrix4fv(glGetUniformLocation(lightProgram, "model"), 1, GL_FALSE, modelLight[0]);
     
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
    
     // final touches
     srand(time(0));
@@ -257,8 +254,9 @@ int main() {
     int running = 1;
     const float speed = 10.0f;
 
+    bool polygonRender = false;
     // for camera
-//    SDL_SetRelativeMouseMode(SDL_TRUE);
+    SDL_SetRelativeMouseMode(SDL_TRUE);
     while (running) {
         now = SDL_GetPerformanceCounter();
         deltaTime = (now - last) / (double)SDL_GetPerformanceFrequency();
@@ -266,6 +264,8 @@ int main() {
         printf("\rDelta time: %f, fps: %d", deltaTime, (int)(1000 / deltaTime));
         printf(" Coordinates: x=%.2f y=%.2f z=%.2f", cam.position[0], cam.position[1], cam.position[2]);
         const unsigned char *keystate = SDL_GetKeyboardState(NULL);
+        if (keystate[SDL_SCANCODE_V])
+            polygonRender = !polygonRender;
         if (keystate[SDL_SCANCODE_W])
             cam = translateWithOrientation(cam, (vec3){ 0.0f, 0.0f, -speed * deltaTime });
         if (keystate[SDL_SCANCODE_S])
@@ -298,7 +298,10 @@ int main() {
                 cam = processMouse(cam, xoffset, yoffset);
             }
         }
-        
+
+        if (polygonRender) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        else glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
         glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

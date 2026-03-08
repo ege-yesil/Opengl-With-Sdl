@@ -5,6 +5,7 @@
 
 #include "object.h"
 #include "util/string.h"
+#include "util/hashMap.h"
 
 Mesh loadObjMesh(char *path) {
     Mesh o;
@@ -14,19 +15,16 @@ Mesh loadObjMesh(char *path) {
         return o;
     }
 
-    Vector tempPos;
-    Vector tempUv;
-    Vector tempNormal;
-    makeVec(&tempPos, 128, sizeof(vec3));
-    makeVec(&tempUv, 128, sizeof(vec2));
-    makeVec(&tempNormal, 128, sizeof(vec3));
+    Vector tempPos = makeVec(128, sizeof(vec3));
+    Vector tempUv = makeVec(128, sizeof(vec2));
+    Vector tempNormal = makeVec(128, sizeof(vec3));
     
-    Vector vertIndices;
-    Vector uvIndices;
-    Vector normalIndices;
-    makeVec(&vertIndices, 128, sizeof(unsigned int));
-    makeVec(&uvIndices, 128, sizeof(unsigned int));
-    makeVec(&normalIndices, 128, sizeof(unsigned int));
+    o.vertices = makeVec(128, sizeof(Vertex));
+    o.textures = makeVec(16, sizeof(Texture));
+    o.indices = makeVec(128, sizeof(unsigned int));
+    HashMap vertMap = makeHashMap(sizeof(VertexKey), sizeof(unsigned int));
+    vertMap.hash = vertexKeyHash;
+    vertMap.equals = equalsVertexKeyHashMap;
     while (1) {
         char lineHeader[128];
         int res = fscanf(file, "%s", lineHeader);
@@ -42,7 +40,7 @@ Mesh loadObjMesh(char *path) {
             pushVec(&tempUv, (void*)&vt, 1); 
         } else if (strcmp(lineHeader, "vn") == 0) {
             vec3 vn;
-            fscanf(file, "%f %f %f\n", &vn[0], &vn[1], &vn[2]);            
+            fscanf(file, "%f %f %f\n", &vn[0], &vn[1], &vn[2]);  
             pushVec(&tempNormal, (void*)&vn, 1); 
         } else if (strcmp(lineHeader, "f") == 0) {
             unsigned int vertexIndex[3], uvIndex[3], normalIndex[3];
@@ -54,42 +52,32 @@ Mesh loadObjMesh(char *path) {
                 return o;
             }
             for (int i = 0; i < 3; i++) {
-                pushVec(&vertIndices, (void*)&vertexIndex[i], 1);
-                pushVec(&uvIndices, (void*)&uvIndex[i], 1);
-                pushVec(&normalIndices, (void*)&normalIndex[i], 1);
+                VertexKey key = { vertexIndex[i] - 1, normalIndex[i] - 1, uvIndex[i] - 1};
+                size_t existingIndex = getHashMap(&vertMap, &key);
+                if (existingIndex != SIZE_MAX) {
+                    pushVec(&o.indices, vertMap.entries[existingIndex].val, 1);
+                } else {
+                    Vertex vert;
+                    vec3 *v = getVec(&tempPos, key.v);
+                    vec3 *vn = getVec(&tempNormal, key.vn);
+                    vec2 *vt = getVec(&tempUv, key.vt);
+                    glm_vec3_copy(*v, vert.pos);
+                    glm_vec3_copy(*vn, vert.normal);
+                    glm_vec2_copy(*vt, vert.uv);
+                    vert.uv[1] = 1.0f - vert.uv[1];
+                    vert.pos[1] = 1.0f - vert.pos[1];
+                    
+                    unsigned int newIndex = o.vertices.size;
+                    pushVec(&o.vertices, &vert, 1);
+                    addHashMap(&vertMap, &key, &newIndex);
+                    pushVec(&o.indices, &newIndex, 1);
+                }
             }
         }
     }
-    
-    makeVec(&o.vertices, 128, sizeof(Vertex));
-    // init for later use
-    makeVec(&o.textures, 16, sizeof(Texture));
-    makeVec(&o.indices, 32, sizeof(unsigned int));
-    for (unsigned int i = 0; i < vertIndices.size; i++) {
-        vec3 *vertex = (vec3*)getVec(&tempPos, *(unsigned int*)getVec(&vertIndices, i) - 1);
-        vec3 *normal = (vec3*)getVec(&tempNormal, *(unsigned int*)getVec(&normalIndices, i) - 1);
-        vec2 *uv = (vec2*)getVec(&tempUv, *(int*)getVec(&uvIndices, i) - 1);
-        if (uv == NULL || normal == NULL || vertex == NULL) {
-            printf("error while loading the normal uv or position data, sending the data as is");
-            break;
-        }
-
-        Vertex pushVertex;
-        glm_vec3_copy(*vertex, pushVertex.pos);
-        glm_vec3_copy(*normal, pushVertex.normal);
-        glm_vec2_copy(*uv, pushVertex.uv);
-        
-        pushVec(&o.vertices, (void*)&pushVertex, 1);
-        
-        pushVec(&o.indices, (void*)&i, 1);
-    }
-
     free(tempPos.data);
     free(tempUv.data);
     free(tempNormal.data);
-    free(vertIndices.data);
-    free(uvIndices.data);
-    free(normalIndices.data);
 
     return o;
 }

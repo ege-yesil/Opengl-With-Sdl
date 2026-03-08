@@ -31,13 +31,12 @@ typedef struct {
 
 typedef struct {
     Vector vertices; // Vector of type Vertex
-    Vector indices;  // Vector of type unsigned int
+    Vector indices;  // Vector of type unsigned int 
     Vector textures; // Vector of type Texture
 
     unsigned int vao, vbo, ebo;
 } Mesh;
 
-// TODO: implement hash map to make the obj loading algorithm better
 Mesh loadObjMesh(char *path);
 void drawMesh(Mesh *this, unsigned int shader);
 void initMesh(Mesh *this);

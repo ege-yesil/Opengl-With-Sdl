@@ -1,6 +1,13 @@
 /*
  * this hash map implementation is made mainly for loading object files more efficiently
- */
+ * USAGE:
+ * HashMap map = makeHashMap(sizeof(int), sizeof(int));
+ * map.hash = intHash;
+ * map.equals = equalsIntHashMap;
+ *
+ * size_t index = getHashMap(&map, &key);
+ * int val = *(int*)map.entries[index].val;
+*/
 
 #ifndef HASH_MAP_H
 #define HASH_MAP_H
@@ -8,9 +15,9 @@
 #include <stddef.h>
 
 typedef struct {
-    int v;
-    int vt;
-    int vn;
+    unsigned int v;
+    unsigned int vn;
+    unsigned int vt;
 } VertexKey;
 
 enum EntryState {

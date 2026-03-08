@@ -3,13 +3,13 @@
 
 #include "vector.h"
 
-uint8_t makeVec(Vector *v, size_t size, size_t stride) {
-    v->data = malloc(size * stride);
-    if (!v->data) return 1;
-    v->size = 0;
-    v->capacity = size;
-    v->stride = stride;
-    return 0;
+Vector makeVec(size_t size, size_t stride) {
+    Vector o;
+    o.data = malloc(size * stride);
+    o.size = 0;
+    o.capacity = size;
+    o.stride = stride;
+    return o;
 }
 
 uint8_t reserveVec(Vector *v, size_t count) {
