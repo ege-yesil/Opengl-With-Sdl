@@ -52,6 +52,7 @@ bool equalsIntHashMap(void *key1, void *key2);
 bool equalsVertexKeyHashMap(void *key1, void *key2);
 
 // hashMap functions
+void freeHashMap(HashMap *map);
 void reserveHashMap(HashMap *map, size_t capacity);
 void addHashMap(HashMap *map, void *key, void *val);
 void removeHashMap(HashMap *map, void *key);

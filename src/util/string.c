@@ -52,14 +52,11 @@ char *readFile(const char *path) {
 }
 
 String intToStr(int n) {
-    String o;
-    if (n == 0) {
-        makeStr(&o, "0");
+    String o = makeStr("0");
+    if (n == 0)
         return o;
-    }
-    makeStr(&o, "");
+    popStr(&o, 1);
 
-    size_t i = 0;
     while (n > 0) {
         char add = (char)(n % 10 + '0');
         appendStrC(&o, &add, 1); 
@@ -77,11 +74,45 @@ String intToStr(int n) {
     return o;
 }
 
-void makeStr(String *s, const char *str) {
-    s->size = strlen(str);
-    s->capacity = s->size + 1;
-    s->str = malloc(s->capacity);
-    memcpy(s->str, str, s->capacity);
+String getParentDir(const char *path) {
+    String o;
+    char *slash = strrchr(path, '/');
+    if (!slash) return makeStr("");
+    size_t len = slash - path + 1;
+    o = makeStrN(path, len);
+
+    return o;
+}
+
+String mergeDir(const char *parent, const char *child) {
+    size_t sizeParent = strlen(parent);
+    String o = makeStr(parent);
+    char *betterChild = (char*)child; 
+    if (child[0] == '/') betterChild++;
+    if (parent[sizeParent - 1] != '/') appendStrC(&o, "/", 1);
+    
+    appendStrC(&o, betterChild, strlen(betterChild));
+
+    return o;
+}
+
+String makeStr(const char *str) {
+    String o;
+    o.size = strlen(str);
+    o.capacity = o.size + 1;
+    o.str = malloc(o.capacity);
+    memcpy(o.str, str, o.capacity);
+    return o;
+}
+
+String makeStrN(const char *str, size_t n) {
+    String o;
+    o.size = n;
+    o.capacity = o.size + 1;
+    o.str = malloc(o.capacity);
+    memcpy(o.str, str, n);
+    o.str[n] = '\0';
+    return o;
 }
 
 uint8_t reserveStr(String *s, size_t capacity) {
@@ -115,6 +146,7 @@ void appendStrC(String *s1, char *s2, size_t size) {
 void appendStrN(String *s1, int n) {
     String s = intToStr(n);    
     appendStr(s1, s, s.size);
+    free(s.str);
 }
 
 void popStr(String *s, size_t count) {

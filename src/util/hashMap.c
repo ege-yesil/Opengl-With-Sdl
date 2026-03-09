@@ -40,6 +40,14 @@ bool equalsVertexKeyHashMap(void *a, void *b) {
            A->vt == B->vt;
 }
 
+void freeHashMap(HashMap *map) {
+    for (size_t i = 0; i < map->capacity; i++) {
+        free(map->entries[i].key);
+        free(map->entries[i].val);
+    }
+    free(map->entries);
+}
+
 void resizeHashMap(HashMap *map, size_t capacity) {
     size_t oldCap = map->capacity;
     MapEntry *oldMap = map->entries;

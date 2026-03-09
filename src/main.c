@@ -3,59 +3,13 @@
 #include <time.h>
 #include <SDL2/SDL.h>
 #include <glad/glad.h>
-
-#include "../cglm/cglm.h"
+#include <cglm.h>
 
 #include "shader.h"
 #include "camera.h"
 #include "util/vector.h"
 #include "object.h"
 #include "util/hashMap.h"
-
-float cube[] = {
-    // positions          // normals           // texture coords
-    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
-     0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
-     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
-
-    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   0.0f, 0.0f,
-     0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   1.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   1.0f, 1.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   1.0f, 1.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   0.0f, 1.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   0.0f, 0.0f,
-
-    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-    -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-    -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
-    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-
-     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-     0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-     0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-
-    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
-     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
-     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
-
-    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
-     0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f
-};
 
 SDL_Window *setupSDL(int width, int height) {
     if (SDL_Init(SDL_INIT_VIDEO)) {
@@ -92,22 +46,7 @@ struct PointLight {
     float quadratic;
 }; 
 
-void test() {
-    HashMap map = makeHashMap(sizeof(VertexKey), sizeof(int));
-    map.hash = intHash;
-    map.equals = equalsVertexKeyHashMap;
-
-    VertexKey key = { 0, 2, 3 };
-    int val = 2;
-    addHashMap(&map, &key, &val);
-
-    size_t i = getHashMap(&map, &key);
-    printf("str: %d\n", *(int*)map.entries[i].val);
-
-}
-
 int main() {
-    test();
     float winWidth = 1080, winHeight = 800;
     SDL_Window *win = setupSDL(winWidth, winHeight);   
     
@@ -133,16 +72,9 @@ int main() {
     
     Mesh backpack = loadObjMesh("assets/backpack.obj");
     Mesh light = loadObjMesh("assets/cube.obj");
-    initMesh(&backpack);
-    initMesh(&light);
+    initMesh(&backpack, objProgram, true);
+    initMesh(&light, lightProgram, false);
    
-    unsigned int diffuseMap = loadTexture("assets/diffuse.jpg");
-    unsigned int specularMap = loadTexture("assets/specular.jpg");
-    Texture diffMap = { diffuseMap, TEX_DIFFUSE };
-    Texture specMap = { specularMap, TEX_SPECULAR };
-    pushVec(&backpack.textures, (void*)&diffMap, 1);
-    pushVec(&backpack.textures, (void*)&specMap, 1);
-
     glUseProgram(objProgram);
     glUniform3f(glGetUniformLocation(objProgram, "material.specular"), 0.5f, 0.5f, 0.5f);
     glUniform1f(glGetUniformLocation(objProgram, "material.shininess"), 32.0f);
@@ -181,14 +113,6 @@ int main() {
     
    
     // final touches
-    srand(time(0));
-    vec3 positions[10];
-    for (int i = 0; i < 10; i++) {
-        positions[i][0] = (rand() % 10) - 5;
-        positions[i][1] = (rand() % 6) - 3;
-        positions[i][2] = (rand() % 6) - 3;
-    }
-    
     struct PointLight lights[3];
     lights[0] = (struct PointLight){
         .pos = {5.0f, 2.0f, 0.0f},
