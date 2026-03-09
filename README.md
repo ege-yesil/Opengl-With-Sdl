@@ -1,0 +1,1 @@
+I am doing this for myself and uploading it on github to archive it. Some versions of the software may not work as intended since i just upload whatever I did that day. For me to upload it does not need to be fully working, it just needs to implement some core functionality
