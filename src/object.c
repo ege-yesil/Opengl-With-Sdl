@@ -161,11 +161,12 @@ Mesh loadObjMesh(const char *path) {
 }
 
 void bindTexture(Texture tex, size_t glTextureIndex, int32_t location) {
-    if (tex.id != 0) {
-        glActiveTexture(GL_TEXTURE0 + glTextureIndex);
+    glActiveTexture(GL_TEXTURE0 + glTextureIndex);
+    if (tex.id != 0) 
         glBindTexture(GL_TEXTURE_2D, tex.id);
-        glUniform1i(location, glTextureIndex);
-    }
+     else
+         glBindTexture(GL_TEXTURE_2D, 0);
+    glUniform1i(location, glTextureIndex);
 }
 
 void drawMesh(Mesh *this, uint32_t shader) {
@@ -180,7 +181,10 @@ void drawMesh(Mesh *this, uint32_t shader) {
                 bindTexture(mat->diffuseMaps[j], j, this->matUniform[j]);
                 bindTexture(mat->specularMaps[j], NR_TEXTURE_MAPS + j, this->matUniform[NR_TEXTURE_MAPS + j]);
             }
-            glUniform1f(this->matUniform[NR_TEXTURE_MAPS * 2 + 4], mat->shininess); // shininess
+            glUniform3fv(this->matUniform[NR_TEXTURE_MAPS * 2], 1, &mat->ambient[0]);
+            glUniform3fv(this->matUniform[NR_TEXTURE_MAPS * 2 + 1], 1, &mat->diffuse[0]);
+            glUniform3fv(this->matUniform[NR_TEXTURE_MAPS * 2 + 2], 1, &mat->specular[0]); 
+            glUniform1f(this->matUniform[NR_TEXTURE_MAPS * 2 + 3], mat->shininess); 
             glDrawElements(GL_TRIANGLES, sub->indexCount, GL_UNSIGNED_INT, (void*)(sub->indexOffset  * sizeof(uint32_t)));
         }
     } else {
@@ -205,10 +209,10 @@ void initMesh(Mesh *this, uint32_t shader, bool hasMaterial) {
             this->matUniform[NR_TEXTURE_MAPS + i] = glGetUniformLocation(shader, uniform);
         }
         
-        this->matUniform[NR_TEXTURE_MAPS * 2 + 1] = glGetUniformLocation(shader, "material.ambient");
-        this->matUniform[NR_TEXTURE_MAPS * 2 + 2] = glGetUniformLocation(shader, "material.diffuse");
-        this->matUniform[NR_TEXTURE_MAPS * 2 + 3] = glGetUniformLocation(shader, "material.specular");
-        this->matUniform[NR_TEXTURE_MAPS * 2 + 4] = glGetUniformLocation(shader, "material.shininess");
+        this->matUniform[NR_TEXTURE_MAPS * 2] = glGetUniformLocation(shader, "material.ambientVec");
+        this->matUniform[NR_TEXTURE_MAPS * 2 + 1] = glGetUniformLocation(shader, "material.diffuseVec");
+        this->matUniform[NR_TEXTURE_MAPS * 2 + 2] = glGetUniformLocation(shader, "material.specularVec");
+        this->matUniform[NR_TEXTURE_MAPS * 2 + 3] = glGetUniformLocation(shader, "material.shininess");
         for (size_t i = 0; i < NR_TEXTURE_MAPS * 2 + 4; i++) {
             if (this->matUniform[i] == -1) printf("Could not recieve uniform for %d index\n", i);
         }

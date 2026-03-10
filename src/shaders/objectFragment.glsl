@@ -48,9 +48,9 @@ float calcSpec(vec3 lightDir, vec3 normal, vec3 view) {
 }
 
 vec3 calculateLight(DirectionalLight light, float diff, float spec, vec3 diffuseTotal, vec3 specTotal) {
-    vec3 ambient = light.ambient * diffuseTotal + material.ambientVec; 
+    vec3 ambient = light.ambient * diffuseTotal; //+ material.ambientVec; 
     vec3 diffuse = light.diffuse * diff * diffuseTotal; 
-    vec3 specular = light.specular * spec * specTotal; 
+    vec3 specular = light.specular * spec * specTotal;
     return (ambient + diffuse + specular);
 }
 
@@ -84,14 +84,15 @@ void main()
     vec3 diffuseTotal = vec3(0);
     vec3 specTotal = vec3(0);
     for (int i = 0; i < NR_TEXTURE_MAPS; i++) {
-        diffuseTotal += texture(material.diffuse[i], voTexCoords).rgb + material.diffuseVec;
-        specTotal += texture(material.specular[i], voTexCoords).rgb + material.specularVec;
-    }
-
+        diffuseTotal += texture(material.diffuse[i], voTexCoords).rgb; 
+        specTotal += texture(material.specular[i], voTexCoords).rgb; 
+    }/*
+    diffuseTotal += material.diffuseVec;
+    specTotal += material.specularVec;
+*/
     vec3 result = calcDirLight(dirLight, norm, viewDir, diffuseTotal, specTotal);
     for (int i = 0; i < NR_POINT_LIGHTS; i++)
         result += calcPointLight(pointLights[i], norm, voFragPos, viewDir, diffuseTotal, specTotal);
-    result /= NR_TEXTURE_MAPS;
     
     FragColor = vec4(result, 1.0);
 } 
