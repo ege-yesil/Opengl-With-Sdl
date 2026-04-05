@@ -76,7 +76,7 @@ String intToStr(int n) {
 
 String getParentDir(const char *path) {
     String o;
-    char *slash = strrchr(path, '/');
+    const char *slash = strrchr(path, '/');
     if (!slash) return makeStr("");
     size_t len = slash - path + 1;
     o = makeStrN(path, len);

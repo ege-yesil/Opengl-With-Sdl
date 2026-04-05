@@ -2,13 +2,14 @@
 #include <stddef.h>
 #include <string.h>
 #include "../cglm/cglm.h"
-
 #include "object.h"
 #include "util/hashMap.h"
 
+
+
 uint32_t loadMtlTexture(FILE *file, const char *path) {
     char tex[128];
-    fscanf(file, "%s\n", &tex);
+    fscanf(file, "%127s\n", tex);
     String parent = getParentDir(path);
     String full = mergeDir(parent.str, tex);
     uint32_t o = loadTexture(full.str);
@@ -22,7 +23,6 @@ Vector loadMtlMesh(const char *path) {
     if (file == NULL) return makeVec(0, 0);
 
     Vector o = makeVec(8, sizeof(PhongMaterial));
-    size_t currentIndex = 0;
     size_t dMap = 0, sMap = 0;
     PhongMaterial push = { 0 };
     while (1) {
@@ -33,7 +33,7 @@ Vector loadMtlMesh(const char *path) {
         if (strcmp(lineHeader, "newmtl") == 0) {
             if (push.name.size != 0) pushVec(&o, &push, 1);
             char name[128];
-            fscanf(file, "%s\n", &name);
+            fscanf(file, "%127s\n", name);
             push.name = makeStr(name);
         } else if (strcmp(lineHeader, "Ns") == 0) {
             fscanf(file, "%f\n", &push.shininess);
@@ -60,8 +60,8 @@ Vector loadMtlMesh(const char *path) {
     return o; 
 }
 
-Mesh loadObjMesh(const char *path) {
-    Mesh o;
+Object loadObject(const char *path) {
+    Object o;
     FILE *file = fopen(path, "r");
     if (file == NULL) {
         printf("object file cannot be accessed or not present in the directory %s\n", path);
@@ -72,9 +72,9 @@ Mesh loadObjMesh(const char *path) {
     Vector tempUv = makeVec(128, sizeof(vec2));
     Vector tempNormal = makeVec(128, sizeof(vec3));
    
-    o.vertices = makeVec(128, sizeof(Vertex));
-    o.indices = makeVec(128, sizeof(uint32_t));
-    o.subMeshes = makeVec(128, sizeof(SubMesh));
+    o.mesh.vertices = makeVec(128, sizeof(Vertex));
+    o.mesh.indices = makeVec(128, sizeof(uint32_t));
+    o.mesh.subMeshes = makeVec(128, sizeof(SubMesh));
     HashMap vertMap = makeHashMap(sizeof(VertexKey), sizeof(uint32_t));
     vertMap.hash = vertexKeyHash;
     vertMap.equals = equalsVertexKeyHashMap;
@@ -97,7 +97,7 @@ Mesh loadObjMesh(const char *path) {
             fscanf(file, "%f %f %f\n", &vn[0], &vn[1], &vn[2]);  
             pushVec(&tempNormal, (void*)&vn, 1); 
         } else if (strcmp(lineHeader, "f") == 0) {
-            unsigned int vertexIndex[3], uvIndex[3], normalIndex[3];
+            uint32_t vertexIndex[3], uvIndex[3], normalIndex[3];
             int matches = fscanf(file, "%d/%d/%d %d/%d/%d %d/%d/%d\n", &vertexIndex[0], &uvIndex[0], 
                     &normalIndex[0], &vertexIndex[1], &uvIndex[1], &normalIndex[1], &vertexIndex[2], 
                     &uvIndex[2], &normalIndex[2]); 
@@ -109,7 +109,7 @@ Mesh loadObjMesh(const char *path) {
                 VertexKey key = { vertexIndex[i] - 1, normalIndex[i] - 1, uvIndex[i] - 1};
                 size_t existingIndex = getHashMap(&vertMap, &key);
                 if (existingIndex != SIZE_MAX) {
-                    pushVec(&o.indices, vertMap.entries[existingIndex].val, 1);
+                    pushVec(&o.mesh.indices, vertMap.entries[existingIndex].val, 1);
                 } else {
                     Vertex vert;
                     vec3 *v = getVec(&tempPos, key.v);
@@ -121,16 +121,16 @@ Mesh loadObjMesh(const char *path) {
                     vert.uv[1] = 1.0f - vert.uv[1];
                     vert.pos[1] = 1.0f - vert.pos[1];
                     
-                    unsigned int newIndex = o.vertices.size;
-                    pushVec(&o.vertices, &vert, 1);
+                    uint32_t newIndex = o.mesh.vertices.size;
+                    pushVec(&o.mesh.vertices, &vert, 1);
                     addHashMap(&vertMap, &key, &newIndex);
-                    pushVec(&o.indices, &newIndex, 1);
+                    pushVec(&o.mesh.indices, &newIndex, 1);
                 }
                 currentSubMesh.indexCount++;
             }
         } else if (strcmp(lineHeader, "mtllib") == 0) {
             char mtlFile[128];
-            fscanf(file, "%s\n", &mtlFile); 
+            fscanf(file, "%127s\n", mtlFile); 
             String parent = getParentDir(path); 
             String full = mergeDir(parent.str, mtlFile); 
             o.materials = loadMtlMesh(full.str);
@@ -138,14 +138,14 @@ Mesh loadObjMesh(const char *path) {
             free(parent.str);
         } else if (strcmp(lineHeader, "usemtl") == 0) {
             char mtl[128];
-            fscanf(file, "%s\n", &mtl);
+            fscanf(file, "%127s\n", mtl);
             for (size_t i = 0; i < o.materials.size; i++) {
                 PhongMaterial material = *(PhongMaterial*)getVec(&o.materials, i);
                 if (strcmp(material.name.str, mtl) == 0) {
                     if (currentSubMesh.indexCount !=  0)
-                        pushVec(&o.subMeshes, &currentSubMesh, 1); 
+                        pushVec(&o.mesh.subMeshes, &currentSubMesh, 1); 
                     currentSubMesh.materialIndex = i;
-                    currentSubMesh.indexOffset = o.indices.size;
+                    currentSubMesh.indexOffset = o.mesh.indices.size;
                 }
             }
         }
@@ -169,26 +169,40 @@ void bindTexture(Texture tex, size_t glTextureIndex, int32_t location) {
     glUniform1i(location, glTextureIndex);
 }
 
-void drawMesh(Mesh *this, uint32_t shader) {
+void drawObject(Object *this, uint32_t shader) {
     glUseProgram(shader);
-    glBindVertexArray(this->vao);
+    glBindVertexArray(this->mesh.vao);
     
+    // recompile the model matrix according to the changed transformation values
+    if (this->transformation.updated) {
+        glm_mat4_identity(this->transformation.model);
+        glm_translate(this->transformation.model, this->transformation.position);
+        
+        glm_rotate(this->transformation.model, this->transformation.orientation[0], (vec3){1.0f, 0.0f, 0.0f});
+        glm_rotate(this->transformation.model, this->transformation.orientation[1], (vec3){0.0f, 1.0f, 0.0f});
+        glm_rotate(this->transformation.model, this->transformation.orientation[2], (vec3){0.0f, 0.0f, 1.0f});
+        
+        glm_scale(this->transformation.model, this->transformation.scale);
+        this->transformation.updated = false;
+    }
+    glUniformMatrix4fv(this->vertexUniforms[0], 1, GL_FALSE, this->transformation.model[0]);
+
     if (this->hasMaterial) {
-        for (size_t i = 0; i < this->subMeshes.size; i++) {
-            SubMesh *sub = (SubMesh*)getVec(&this->subMeshes, i);
+        for (size_t i = 0; i < this->mesh.subMeshes.size; i++) {
+            SubMesh *sub = (SubMesh*)getVec(&this->mesh.subMeshes, i);
             PhongMaterial *mat = (PhongMaterial*)getVec(&this->materials, sub->materialIndex);
             for (int32_t j = 0; j < NR_TEXTURE_MAPS; j++) {
-                bindTexture(mat->diffuseMaps[j], j, this->matUniform[j]);
-                bindTexture(mat->specularMaps[j], NR_TEXTURE_MAPS + j, this->matUniform[NR_TEXTURE_MAPS + j]);
+                bindTexture(mat->diffuseMaps[j], j, this->materialUniforms[j]);
+                bindTexture(mat->specularMaps[j], NR_TEXTURE_MAPS + j, this->materialUniforms[NR_TEXTURE_MAPS + j]);
             }
-            glUniform3fv(this->matUniform[NR_TEXTURE_MAPS * 2], 1, &mat->ambient[0]);
-            glUniform3fv(this->matUniform[NR_TEXTURE_MAPS * 2 + 1], 1, &mat->diffuse[0]);
-            glUniform3fv(this->matUniform[NR_TEXTURE_MAPS * 2 + 2], 1, &mat->specular[0]); 
-            glUniform1f(this->matUniform[NR_TEXTURE_MAPS * 2 + 3], mat->shininess); 
-            glDrawElements(GL_TRIANGLES, sub->indexCount, GL_UNSIGNED_INT, (void*)(sub->indexOffset  * sizeof(uint32_t)));
+            glUniform3fv(this->materialUniforms[NR_TEXTURE_MAPS * 2], 1, &mat->ambient[0]);
+            glUniform3fv(this->materialUniforms[NR_TEXTURE_MAPS * 2 + 1], 1, &mat->diffuse[0]);
+            glUniform3fv(this->materialUniforms[NR_TEXTURE_MAPS * 2 + 2], 1, &mat->specular[0]); 
+            glUniform1f(this->materialUniforms[NR_TEXTURE_MAPS * 2 + 3], mat->shininess); 
+            glDrawElements(GL_TRIANGLES, sub->indexCount, GL_UNSIGNED_INT, (void*)(sub->indexOffset * sizeof(uint32_t)));
         }
     } else {
-        glDrawElements(GL_TRIANGLES, this->indices.size, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, this->mesh.indices.size, GL_UNSIGNED_INT, 0);
     }
     glBindVertexArray(0);
 }
@@ -197,27 +211,14 @@ void deletePhongMaterial(PhongMaterial *material) {
     free(material->name.str);
 }
 
-void initMesh(Mesh *this, uint32_t shader, bool hasMaterial) {
-    this->hasMaterial = hasMaterial;
-    if (hasMaterial) {
-        glUseProgram(shader);
-        for (int i = 0; i < NR_TEXTURE_MAPS; i++) {
-            char uniform[128];
-            sprintf(uniform, "material.diffuse[%d]", i);
-            this->matUniform[i] = glGetUniformLocation(shader, uniform);
-            sprintf(uniform, "material.specular[%d]", i);
-            this->matUniform[NR_TEXTURE_MAPS + i] = glGetUniformLocation(shader, uniform);
-        }
-        
-        this->matUniform[NR_TEXTURE_MAPS * 2] = glGetUniformLocation(shader, "material.ambientVec");
-        this->matUniform[NR_TEXTURE_MAPS * 2 + 1] = glGetUniformLocation(shader, "material.diffuseVec");
-        this->matUniform[NR_TEXTURE_MAPS * 2 + 2] = glGetUniformLocation(shader, "material.specularVec");
-        this->matUniform[NR_TEXTURE_MAPS * 2 + 3] = glGetUniformLocation(shader, "material.shininess");
-        for (size_t i = 0; i < NR_TEXTURE_MAPS * 2 + 4; i++) {
-            if (this->matUniform[i] == -1) printf("Could not recieve uniform for %d index\n", i);
-        }
-    }
+void updateObject(Object *this, Camera cam, uint32_t shader) {
+    glUseProgram(shader);
+    mat4 view = GLM_MAT4_IDENTITY_INIT;
+    cameraToViewMatrix(cam, view);
+    glUniformMatrix4fv(this->vertexUniforms[1], 1, GL_FALSE, view[0]);
+}
 
+void initMesh(Mesh *this) {
     glGenVertexArrays(1, &this->vao);
     glGenBuffers(1, &this->vbo);
     glGenBuffers(1, &this->ebo);
@@ -239,4 +240,42 @@ void initMesh(Mesh *this, uint32_t shader, bool hasMaterial) {
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
     
     glBindVertexArray(0);
+}
+
+void initObject(Object *this, uint32_t shader, bool hasMaterial, float winWidth, float winHeight) {
+    initMesh(&this->mesh);
+    glm_vec3_zero(this->transformation.position); 
+    glm_vec3_zero(this->transformation.orientation);
+    glm_vec3_one(this->transformation.scale);
+    this->transformation.updated = true;
+    this->hasMaterial = hasMaterial;
+    glUseProgram(shader);
+    if (hasMaterial) {
+        for (int i = 0; i < NR_TEXTURE_MAPS; i++) {
+            char uniform[128];
+            sprintf(uniform, "material.diffuse[%d]", i);
+            this->materialUniforms[i] = glGetUniformLocation(shader, uniform);
+            sprintf(uniform, "material.specular[%d]", i);
+            this->materialUniforms[NR_TEXTURE_MAPS + i] = glGetUniformLocation(shader, uniform);
+        }
+        
+        this->materialUniforms[NR_TEXTURE_MAPS * 2] = glGetUniformLocation(shader, "material.ambientVec");
+        this->materialUniforms[NR_TEXTURE_MAPS * 2 + 1] = glGetUniformLocation(shader, "material.diffuseVec");
+        this->materialUniforms[NR_TEXTURE_MAPS * 2 + 2] = glGetUniformLocation(shader, "material.specularVec");
+        this->materialUniforms[NR_TEXTURE_MAPS * 2 + 3] = glGetUniformLocation(shader, "material.shininess");
+        for (size_t i = 0; i < NR_TEXTURE_MAPS * 2 + 4; i++) {
+            if (this->materialUniforms[i] == -1) printf("Could not recieve fragment uniform for %ld index\n", i);
+        }
+    }
+
+    this->vertexUniforms[0] = glGetUniformLocation(shader, "model");
+    this->vertexUniforms[1] = glGetUniformLocation(shader, "view");
+    this->vertexUniforms[2] = glGetUniformLocation(shader, "projection");
+    for (size_t i = 0; i < 3; i++) {
+        if (this->vertexUniforms[i] == -1) printf("Could not reciece vertex uniform for %ld index\n", i);
+    }
+    //setup projection
+    mat4 projection = GLM_MAT4_IDENTITY_INIT;
+    glm_perspective(M_PI / 4.0F, winWidth / winHeight, 0.1f, 100.0f, projection);
+    glUniformMatrix4fv(this->vertexUniforms[2], 1, GL_FALSE, projection[0]);
 }

@@ -1,6 +1,6 @@
 CC = gcc
 
-files := src/main.c src/shader.c src/camera.c src/util/string.c src/util/vector.c src/util/hashMap.c src/object.c
+files := src/main.c src/shader.c src/camera.c src/util/string.c src/util/vector.c src/util/hashMap.c src/object.c src/transformation.c
 flags := glad/libglad.a -Icglm/ -Iglad/include -lm -lSDL2 -lGL
 
 debugMem:

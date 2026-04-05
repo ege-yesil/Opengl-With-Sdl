@@ -58,27 +58,26 @@ int main() {
     
     glEnable(GL_DEPTH_TEST);     
     
-    unsigned int vert = loadShader("src/shaders/vertex.glsl", GL_VERTEX_SHADER);
+    uint32_t vert = loadShader("src/shaders/vertex.glsl", GL_VERTEX_SHADER);
     if (vert == 0) printf("\ncouldnt load vertex shader");
-    unsigned int objFrag = loadShader("src/shaders/objectFragment.glsl", GL_FRAGMENT_SHADER);
+    uint32_t objFrag = loadShader("src/shaders/objectFragment.glsl", GL_FRAGMENT_SHADER);
     if (objFrag == 0) printf("\ncouldnt load fragment shader");  
-    unsigned int lightFrag = loadShader("src/shaders/lightFragment.glsl", GL_FRAGMENT_SHADER); 
+    uint32_t lightFrag = loadShader("src/shaders/lightFragment.glsl", GL_FRAGMENT_SHADER); 
     if (lightFrag == 0) printf("\ncouldnt load fragment shader");  
-    unsigned int objProgram = createShaderProgram(vert, objFrag);
-    unsigned int lightProgram = createShaderProgram(vert, lightFrag);
+    uint32_t objProgram = createShaderProgram(vert, objFrag);
+    uint32_t lightProgram = createShaderProgram(vert, lightFrag);
     glDeleteShader(vert);
     glDeleteShader(objFrag);
     glDeleteShader(lightFrag);
     
-    Mesh backpack = loadObjMesh("assets/backpack.obj");
-    Mesh light = loadObjMesh("assets/cube.obj");
-    initMesh(&backpack, objProgram, true);
-    initMesh(&light, lightProgram, false);
+    Object backpack = loadObject("assets/backpack.obj");
+    Object ground = loadObject("assets/ground.obj");
+    Object light = loadObject("assets/cube.obj");
+    initObject(&backpack, objProgram, true, winWidth, winHeight);
+    initObject(&ground, objProgram, true, winWidth, winHeight);
+    initObject(&light, lightProgram, false, winWidth, winHeight);
    
     glUseProgram(objProgram);
-    glUniform3f(glGetUniformLocation(objProgram, "material.specular"), 0.5f, 0.5f, 0.5f);
-    glUniform1f(glGetUniformLocation(objProgram, "material.shininess"), 32.0f);
-    
     glUniform3f(glGetUniformLocation(objProgram, "light.ambient"), 0.2f, 0.2f, 0.2f);
     glUniform3f(glGetUniformLocation(objProgram, "light.diffuse"), 1.0f, 1.0f, 1.0f);
     glUniform3f(glGetUniformLocation(objProgram, "light.specular"), 1.0f, 1.0f, 1.0f);
@@ -87,31 +86,15 @@ int main() {
     glUniform1f(glGetUniformLocation(objProgram, "light.linear"), 0.009f);
     glUniform1f(glGetUniformLocation(objProgram, "light.quadratic"), 0.032f);
 
-    glUseProgram(objProgram);
-    glUniform1i(glGetUniformLocation(objProgram, "material.diffuse"), 0);
-    glUniform1i(glGetUniformLocation(objProgram, "material.specular"), 1);
-
     // camera and transformations 
     Camera cam = camInit();
     cam.sensitivity = 0.2;
-    cam = translate(cam, (vec3){ 0.0f, -1.0f, -3.0f });
-    cam = rotate(cam, M_PI, (vec3){ 1.0f, 0.0f, 0.0f });
-    mat4 model = GLM_MAT4_IDENTITY_INIT, view = GLM_MAT4_IDENTITY_INIT, projection = GLM_MAT4_IDENTITY_INIT;
-    cameraToViewMatrix(cam, view);
-    glm_perspective(M_PI / 4.0f, winWidth / winHeight, 0.1f, 100.0f, projection);
+    translate(&cam.transformation, (vec3){ 0.0f, -1.0f, -3.0f });
+    rotate(&cam.transformation, M_PI, (vec3){ 1.0f, 0.0f, 0.0f });
 
     vec3 lightPos = { 4.0f, -3.0f, -1.0f};
-    glUniformMatrix4fv(glGetUniformLocation(objProgram, "projection"), 1, GL_FALSE, projection[0]);
     glUniform3fv(glGetUniformLocation(objProgram, "lightPos"), 1, lightPos);
     
-    
-    glUseProgram(lightProgram); 
-    glUniformMatrix4fv(glGetUniformLocation(lightProgram, "projection"), 1, GL_FALSE, projection[0]);
-    mat4 modelLight = GLM_MAT4_IDENTITY_INIT;
-    glm_translate_make(modelLight, lightPos);
-    glUniformMatrix4fv(glGetUniformLocation(lightProgram, "model"), 1, GL_FALSE, modelLight[0]);
-    
-   
     // final touches
     struct PointLight lights[3];
     lights[0] = (struct PointLight){
@@ -176,7 +159,7 @@ int main() {
     unsigned long last = 0;
     double deltaTime = 0;
     int running = 1;
-    const float speed = 10.0f;
+    const float speed = 15.0f;
 
     bool polygonRender = false;
     // for camera
@@ -186,31 +169,31 @@ int main() {
         deltaTime = (now - last) / (double)SDL_GetPerformanceFrequency();
         last = now;
         printf("\rDelta time: %f, fps: %d", deltaTime, (int)(1000 / deltaTime));
-        printf(" Coordinates: x=%.2f y=%.2f z=%.2f", cam.position[0], cam.position[1], cam.position[2]);
+        printf(" Coordinates: x=%.2f y=%.2f z=%.2f", cam.transformation.position[0], cam.transformation.position[1], cam.transformation.position[2]);
         const unsigned char *keystate = SDL_GetKeyboardState(NULL);
         if (keystate[SDL_SCANCODE_V])
             polygonRender = !polygonRender;
         if (keystate[SDL_SCANCODE_W])
-            cam = translateWithOrientation(cam, (vec3){ 0.0f, 0.0f, -speed * deltaTime });
+            translateWithOrientation(&cam.transformation, (vec3){ 0.0f, 0.0f, -speed * deltaTime });
         if (keystate[SDL_SCANCODE_S])
-            cam = translateWithOrientation(cam, (vec3){ 0.0f, 0.0f, speed * deltaTime });
+            translateWithOrientation(&cam.transformation, (vec3){ 0.0f, 0.0f, speed * deltaTime });
         if (keystate[SDL_SCANCODE_A])
-            cam = translateWithOrientation(cam, (vec3){ -speed * deltaTime, 0.0f, 0.0f });
+            translateWithOrientation(&cam.transformation, (vec3){ -speed * deltaTime, 0.0f, 0.0f });
         if (keystate[SDL_SCANCODE_D])
-            cam = translateWithOrientation(cam, (vec3){ speed * deltaTime, 0.0f, 0.0f });
+            translateWithOrientation(&cam.transformation , (vec3){ speed * deltaTime, 0.0f, 0.0f });
         if (keystate[SDL_SCANCODE_SPACE])
-            cam = translateWithOrientation(cam, (vec3){ 0.0f, speed * deltaTime, 0.0f });
+            translateWithOrientation(&cam.transformation, (vec3){ 0.0f, speed * deltaTime, 0.0f });
         if (keystate[SDL_SCANCODE_LSHIFT])
-            cam = translateWithOrientation(cam, (vec3){ 0.0f, -speed * deltaTime, 0.0f });
+            translateWithOrientation(&cam.transformation, (vec3){ 0.0f, -speed * deltaTime, 0.0f });
        
         if (keystate[SDL_SCANCODE_RIGHT])
-            cam = rotate(cam, M_PI / 4 * deltaTime, (vec3){ 0.0f, -1.0f, 0.0f });
+            rotate(&cam.transformation, M_PI / 4 * deltaTime, (vec3){ 0.0f, -1.0f, 0.0f });
         if (keystate[SDL_SCANCODE_LEFT])
-            cam = rotate(cam, M_PI / 4 * deltaTime, (vec3){ 0.0f, 1.0f, 0.0f });
+            rotate(&cam.transformation, M_PI / 4 * deltaTime, (vec3){ 0.0f, 1.0f, 0.0f });
         if (keystate[SDL_SCANCODE_UP])
-            cam = rotate(cam, M_PI / 4 * deltaTime, (vec3){ 1.0f, 0.0f, 0.0f });
+            rotate(&cam.transformation, M_PI / 4 * deltaTime, (vec3){ 1.0f, 0.0f, 0.0f });
         if (keystate[SDL_SCANCODE_DOWN])
-            cam = rotate(cam, M_PI / 4 * deltaTime, (vec3){ -1.0f, 0.0f, 0.0f });
+            rotate(&cam.transformation, M_PI / 4 * deltaTime, (vec3){ -1.0f, 0.0f, 0.0f });
         
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
@@ -230,21 +213,22 @@ int main() {
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        cameraToViewMatrix(cam, view); 
         glUseProgram(objProgram);
-        glUniform3fv(glGetUniformLocation(objProgram, "viewPos"), 1, cam.position); 
+        glUniform3fv(glGetUniformLocation(objProgram, "viewPos"), 1, cam.transformation.position); 
         glUniform3fv(glGetUniformLocation(objProgram, "light.direction"), 1, lightPos);
-        glUniformMatrix4fv(glGetUniformLocation(objProgram, "model"), 1, GL_FALSE, model[0]);
-        glUniformMatrix4fv(glGetUniformLocation(objProgram, "view"), 1, GL_FALSE, view[0]);
 
-        glUseProgram(lightProgram);
+        updateObject(&backpack, cam, objProgram);
+        updateObject(&ground, cam, objProgram); 
+        updateObject(&light, cam, lightProgram); 
         for (int i = 0; i < 3; i++) {
-            glm_translate_make(modelLight, lights[i].pos);
-            glUniformMatrix4fv(glGetUniformLocation(lightProgram, "model"), 1, GL_FALSE, modelLight[0]);
-            glUniformMatrix4fv(glGetUniformLocation(lightProgram, "view"), 1, GL_FALSE, view[0]);
-            drawMesh(&light, lightProgram);
+            //glm_translate_make(modelLight, lights[i].pos);
+        //    glUniformMatrix4fv(glGetUniformLocation(lightProgram, "model"), 1, GL_FALSE, modelLight[0]);
+//            glUniformMatrix4fv(glGetUniformLocation(lightProgram, "view"), 1, GL_FALSE, view[0]);
+            drawObject(&light, lightProgram);
         }
-        drawMesh(&backpack, objProgram); 
+       
+        drawObject(&ground, objProgram);
+        drawObject(&backpack, objProgram); 
         GLenum err = glGetError();
         if (err != 0)
             printf("GL error: %d\n", err);

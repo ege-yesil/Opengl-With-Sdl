@@ -15,9 +15,9 @@
 #include <stddef.h>
 
 typedef struct {
-    unsigned int v;
-    unsigned int vn;
-    unsigned int vt;
+    uint32_t v;
+    uint32_t vn;
+    uint32_t vt;
 } VertexKey;
 
 enum EntryState {

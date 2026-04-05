@@ -1,18 +1,22 @@
 /* How to use the mesh system
- * Mesh mesh = loadObjMesh("assets/mesh.obj");
- * initMesh(&mesh, shaderProgram);
+ * Object object = loadObject("assets/mesh.obj");
+ * initObject(&mesh, shaderProgram, hasMaterial, winWidth, winHeight);
  * 
  * inside the draw loop do
- * drawMesh(&mesh, shaderProgram);
+ * updateObject(&object, camera, shaderProgram);
+ * drawObject(&Object, shaderProgram);
  */
 
 #ifndef OBJECT_H
 #define OBJECT_H
+#include <stdint.h>
 #include "../cglm/cglm.h" 
 
 #include "shader.h"
 #include "util/vector.h"
 #include "util/string.h"
+#include "transformation.h"
+#include "camera.h"
 
 #define NR_TEXTURE_MAPS 3
 
@@ -28,7 +32,7 @@ enum TextureType {
 };
 
 typedef struct {
-    unsigned int id;
+    uint32_t id;
     enum TextureType type;
 } Texture;
 
@@ -50,13 +54,20 @@ typedef struct {
 
 typedef struct {
     Vector vertices; // Vector of type Vertex
-    Vector indices;  // Vector of type unsigned int 
-    Vector materials; // Vector of type PhongMaterial
+    Vector indices;  // Vector of type uint32_t 
     Vector subMeshes; // Vector of type Submesh 
-    
+   
+    uint32_t vao, vbo, ebo;
+} Mesh;
+
+typedef struct {
+    Mesh mesh;
+    Transformation transformation;
+   
+    Vector materials; // Vector of type PhongMaterial
     bool hasMaterial; 
     // members of shader material struct 
-    int32_t matUniform[4 + NR_TEXTURE_MAPS * 2]; // uniform to shader material 
+    int32_t materialUniforms[4 + NR_TEXTURE_MAPS * 2]; // uniform to shader material 
     /* LAYOUT
      * diffuse maps * NR_TEXTURE_MAPS: sampler2D 
      * specular maps * NR_TEXTURE_MAPS: sampler2D
@@ -65,18 +76,24 @@ typedef struct {
      * specular: vec3
      * shininess: float
      */
-
-    uint32_t vao, vbo, ebo;
-} Mesh;
+    int32_t vertexUniforms[3]; // vertex shader uniforms
+    /* LAYOUT
+     * model
+     * view
+     * projection
+     */
+} Object;
 
 // TODO: add emissive material loading and emission maps general
 // TODO: add index of  refraction material loading
 // TODO: add transparancy
 // TODO: add illum model
 Vector loadMtlMesh(const char *path);  // returns a vector of PhongMaterial
-Mesh loadObjMesh(const char *path);
-void drawMesh(Mesh *this, uint32_t shader);
+Object loadObject(const char *path);
+void drawObject(Object *this, uint32_t shader);
 void deletePhongMaterial(PhongMaterial *material);
-void initMesh(Mesh *this, uint32_t shader, bool hasMaterial);
+void updateObject(Object *this, Camera cam, uint32_t shader);
+void initMesh(Mesh *this); // bind opengl buffers
+void initObject(Object *this, uint32_t shader, bool hasMaterial, float winWidth, float winHeight); // setup uniform maps setup projection matrix 
 
 #endif

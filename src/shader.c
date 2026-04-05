@@ -3,7 +3,7 @@
 #include "shader.h"
 #include "util/string.h"
 
-unsigned int loadTexture(const char *path) {
+uint32_t loadTexture(const char *path) {
     int width, height, nrComponents;
     stbi_set_flip_vertically_on_load(true);
     unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
@@ -13,10 +13,10 @@ unsigned int loadTexture(const char *path) {
         return 0;
     }
 
-    unsigned int o;
+    uint32_t o;
     glGenTextures(1, &o);
     
-    GLenum format;
+    GLenum format = GL_RGB;
     if (nrComponents == 1)
         format = GL_RED;
     else if (nrComponents == 3)
@@ -39,12 +39,12 @@ unsigned int loadTexture(const char *path) {
     return o;
 }
 
-unsigned int loadShader(const char *path, GLenum shaderType) {
+uint32_t loadShader(const char *path, GLenum shaderType) {
     const char *src = readFile(path);
     if (src == NULL) {
         return -1;
     }
-    unsigned int out = glCreateShader(shaderType);
+    uint32_t out = glCreateShader(shaderType);
     glShaderSource(out, 1, &src, NULL);    
     glCompileShader(out);
     
@@ -60,8 +60,8 @@ unsigned int loadShader(const char *path, GLenum shaderType) {
     return out;
 }
 
-unsigned int createShaderProgram(unsigned int vertex, unsigned int fragment) {
-    unsigned int out = glCreateProgram();
+uint32_t createShaderProgram(uint32_t vertex, uint32_t fragment) {
+    uint32_t out = glCreateProgram();
     glAttachShader(out, vertex);
     glAttachShader(out, fragment);
 
