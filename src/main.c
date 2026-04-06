@@ -77,6 +77,9 @@ int main() {
     initObject(&ground, objProgram, true, winWidth, winHeight);
     initObject(&light, lightProgram, false, winWidth, winHeight);
    
+    translate(&backpack.transformation, (vec3){1, 1, 2});
+    translate(&ground.transformation, (vec3){0, 10, 0});
+
     glUseProgram(objProgram);
     glUniform3f(glGetUniformLocation(objProgram, "light.ambient"), 0.2f, 0.2f, 0.2f);
     glUniform3f(glGetUniformLocation(objProgram, "light.diffuse"), 1.0f, 1.0f, 1.0f);
@@ -221,9 +224,7 @@ int main() {
         updateObject(&ground, cam, objProgram); 
         updateObject(&light, cam, lightProgram); 
         for (int i = 0; i < 3; i++) {
-            //glm_translate_make(modelLight, lights[i].pos);
-        //    glUniformMatrix4fv(glGetUniformLocation(lightProgram, "model"), 1, GL_FALSE, modelLight[0]);
-//            glUniformMatrix4fv(glGetUniformLocation(lightProgram, "view"), 1, GL_FALSE, view[0]);
+            translate(&light.transformation, lights[i].pos);
             drawObject(&light, lightProgram);
         }
        

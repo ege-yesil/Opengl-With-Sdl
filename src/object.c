@@ -5,8 +5,6 @@
 #include "object.h"
 #include "util/hashMap.h"
 
-
-
 uint32_t loadMtlTexture(FILE *file, const char *path) {
     char tex[128];
     fscanf(file, "%127s\n", tex);
@@ -150,6 +148,10 @@ Object loadObject(const char *path) {
             }
         }
     }
+
+    // if the object has one big submesh we need to push that
+    pushVec(&o.mesh.subMeshes, &currentSubMesh, 1); 
+    
     fclose(file);
 
     free(tempPos.data);

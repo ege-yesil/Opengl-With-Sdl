@@ -86,10 +86,10 @@ void main()
     for (int i = 0; i < NR_TEXTURE_MAPS; i++) {
         diffuseTotal += texture(material.diffuse[i], voTexCoords).rgb; 
         specTotal += texture(material.specular[i], voTexCoords).rgb; 
-    }/*
-    diffuseTotal += material.diffuseVec;
-    specTotal += material.specularVec;
-*/
+    }
+    //diffuseTotal += material.diffuseVec;
+    //specTotal += material.specularVec;
+
     vec3 result = calcDirLight(dirLight, norm, viewDir, diffuseTotal, specTotal);
     for (int i = 0; i < NR_POINT_LIGHTS; i++)
         result += calcPointLight(pointLights[i], norm, voFragPos, viewDir, diffuseTotal, specTotal);
