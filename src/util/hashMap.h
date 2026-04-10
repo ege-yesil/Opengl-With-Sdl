@@ -48,8 +48,10 @@ typedef struct {
 // hash functions
 size_t intHash(void *key);
 size_t vertexKeyHash(void *key); 
+size_t stringHash(void *key);
 bool equalsIntHashMap(void *key1, void *key2);
 bool equalsVertexKeyHashMap(void *key1, void *key2);
+bool equalsStringHashMap(void *key1, void *key2);
 
 // hashMap functions
 void freeHashMap(HashMap *map);

@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "string.h"
 #include "hashMap.h"
 
 size_t intHash(void *k) {
@@ -15,7 +16,6 @@ size_t intHash(void *k) {
 
     return x;
 }
-
 size_t vertexKeyHash(void *k) {
     VertexKey *key = (VertexKey*)k;
 
@@ -25,6 +25,22 @@ size_t vertexKeyHash(void *k) {
     h ^= key->vn * 83492791;
 
     return h;
+}
+size_t stringHash(void *k) {
+    const char *s = (const char*)k;
+    const int p = 31;
+    const int m =  1e9 + 9;
+    size_t hash = 0;
+    size_t pow = 1;
+
+    size_t i = 0;
+    while (s[i] != '\0') { 
+        char c = s[i];
+        hash = (hash + (c - 'a' + 1) * pow) % m;
+        pow = (pow * p) % m;
+        i++;
+    }
+    return hash;
 }
 
 bool equalsIntHashMap(void *key1, void *key2) {
@@ -38,6 +54,12 @@ bool equalsVertexKeyHashMap(void *a, void *b) {
     return A->v  == B->v &&
            A->vn == B->vn &&
            A->vt == B->vt;
+}
+bool equalsStringHashMap(void *key1, void *key2) {
+    const char *k1 = (const char*)key1;
+    const char *k2 = (const char*)key2;
+    
+    return strcmp(k1, k2) == 0;
 }
 
 void freeHashMap(HashMap *map) {
