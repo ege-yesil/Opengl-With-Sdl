@@ -64,22 +64,6 @@ typedef struct {
    
     Vector materials; // Vector of type PhongMaterial
     bool hasMaterial; 
-    // members of shader material struct 
-    int32_t materialUniforms[4 + NR_TEXTURE_MAPS * 2]; // uniform to shader material 
-    /* LAYOUT
-     * diffuse maps * NR_TEXTURE_MAPS: sampler2D 
-     * specular maps * NR_TEXTURE_MAPS: sampler2D
-     * ambient: vec3
-     * diffuse: vec3
-     * specular: vec3
-     * shininess: float
-     */
-    int32_t vertexUniforms[3]; // vertex shader uniforms
-    /* LAYOUT
-     * model
-     * view
-     * projection
-     */
 } Object;
 
 // TODO: add emissive material loading and emission maps general
