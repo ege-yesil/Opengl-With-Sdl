@@ -11,7 +11,7 @@
 #include "object.h"
 #include "util/hashMap.h"
 
-SDL_Window *setupSDL(int width, int height) {
+SDL_Window *setupSDL(int32_t width, int32_t height) {
     if (SDL_Init(SDL_INIT_VIDEO)) {
         printf("SDL_Init fail");
         return NULL;
@@ -46,8 +46,19 @@ struct PointLight {
     float quadratic;
 }; 
 
-int main() {
-    float winWidth = 1080, winHeight = 800;
+void test() {
+    HashMap map = makeHashMap(sizeof(char) * 32, sizeof(int32_t));
+    map.hash = stringHash;
+    map.equals = equalsStringHashMap;
+    int32_t b = 32;
+    addHashMap_cstr_i32(&map, "yo", 32);
+    int32_t a = i32_getHashMap_cstr(&map, "yo");
+    printf("%d", a);
+}
+
+int32_t main() {
+    test();
+    uint32_t winWidth = 1080, winHeight = 800;
     SDL_Window *win = setupSDL(winWidth, winHeight);   
     
     if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
@@ -64,30 +75,41 @@ int main() {
     if (objFrag == 0) printf("\ncouldnt load fragment shader");  
     uint32_t lightFrag = loadShader("src/shaders/lightFragment.glsl", GL_FRAGMENT_SHADER); 
     if (lightFrag == 0) printf("\ncouldnt load fragment shader");  
-    uint32_t objProgram = createShaderProgram(vert, objFrag);
-    uint32_t lightProgram = createShaderProgram(vert, lightFrag);
+    Shader objProgram = createShader(vert, objFrag);
+    Shader lightProgram = createShader(vert, lightFrag);
     glDeleteShader(vert);
     glDeleteShader(objFrag);
     glDeleteShader(lightFrag);
-    
+
+    setupVertexUniforms(&objProgram, winWidth, winHeight);
+    setupFragmentUniforms(&objProgram, PHONG);
+    setupVertexUniforms(&lightProgram, winWidth, winHeight);
+    setupFragmentUniforms(&lightProgram, NONE);
+
+    checkUniforms(lightProgram);
+    checkUniforms(objProgram);
+
     Object backpack = loadObject("assets/backpack.obj");
     Object ground = loadObject("assets/ground.obj");
-    Object light = loadObject("assets/cube.obj");
-    initObject(&backpack, objProgram, true, winWidth, winHeight);
-    initObject(&ground, objProgram, true, winWidth, winHeight);
-    initObject(&light, lightProgram, false, winWidth, winHeight);
+    Object light[3];
+    for (int32_t i = 0; i < 3; i++) {
+        light[i] = loadObject("assets/cube.obj");
+        initObject(&light[i], false);
+    }
+    initObject(&backpack, true);
+    initObject(&ground, true);
    
-    translate(&backpack.transformation, (vec3){1, 1, 2});
-    translate(&ground.transformation, (vec3){0, 10, 0});
-
-    glUseProgram(objProgram);
-    glUniform3f(glGetUniformLocation(objProgram, "light.ambient"), 0.2f, 0.2f, 0.2f);
-    glUniform3f(glGetUniformLocation(objProgram, "light.diffuse"), 1.0f, 1.0f, 1.0f);
-    glUniform3f(glGetUniformLocation(objProgram, "light.specular"), 1.0f, 1.0f, 1.0f);
+    translate(&backpack.transformation, (vec3){ 1, 2, 2 });
+    translate(&ground.transformation, (vec3){ 0, 10, 0 });
     
-    glUniform1f(glGetUniformLocation(objProgram, "light.constant"), 1.0f);
-    glUniform1f(glGetUniformLocation(objProgram, "light.linear"), 0.009f);
-    glUniform1f(glGetUniformLocation(objProgram, "light.quadratic"), 0.032f);
+    glUseProgram(objProgram.program);
+    glUniform3f(glGetUniformLocation(objProgram.program, "light.ambient"), 0.2f, 0.2f, 0.2f);
+    glUniform3f(glGetUniformLocation(objProgram.program, "light.diffuse"), 1.0f, 1.0f, 1.0f);
+    glUniform3f(glGetUniformLocation(objProgram.program, "light.specular"), 1.0f, 1.0f, 1.0f);
+    
+    glUniform1f(glGetUniformLocation(objProgram.program, "light.constant"), 1.0f);
+    glUniform1f(glGetUniformLocation(objProgram.program, "light.linear"), 0.009f);
+    glUniform1f(glGetUniformLocation(objProgram.program, "light.quadratic"), 0.032f);
 
     // camera and transformations 
     Camera cam = camInit();
@@ -96,17 +118,17 @@ int main() {
     rotate(&cam.transformation, M_PI, (vec3){ 1.0f, 0.0f, 0.0f });
 
     vec3 lightPos = { 4.0f, -3.0f, -1.0f};
-    glUniform3fv(glGetUniformLocation(objProgram, "lightPos"), 1, lightPos);
-    
-    // final touches
+    glUniform3fv(glGetUniformLocation(objProgram.program, "lightPos"), 1, lightPos);
+   
+    // lights 
     struct PointLight lights[3];
     lights[0] = (struct PointLight){
-        .pos = {5.0f, 2.0f, 0.0f},
-        .ambient = { 0.2f, 0.2f, 0.2f },
+        .pos = {20.0f, 2.0f, 0.0f},
+        .ambient = { 0.5f, 0.5f, 0.5f },
         .diffuse = { 1.0f, 1.0f, 1.0f },
         .specular = { 1.0f, 1.0f, 1.0f },
         .constant = 1.0f,
-        .linear = 0.09f,
+        .linear = 0.009f,
         .quadratic = 0.032f
     };
     lights[1] = (struct PointLight){
@@ -128,40 +150,40 @@ int main() {
         .quadratic = 0.0032f
     };
    
-    glUseProgram(objProgram); 
-    glUniform3fv(glGetUniformLocation(objProgram, "pointLights[0].position"), 1, lights[0].pos);
-    glUniform3fv(glGetUniformLocation(objProgram, "pointLights[0].ambient"), 1, lights[0].ambient);
-    glUniform3fv(glGetUniformLocation(objProgram, "pointLights[0].diffuse"), 1, lights[0].diffuse);
-    glUniform3fv(glGetUniformLocation(objProgram, "pointLights[0].specular"), 1, lights[0].specular);
-    glUniform1f(glGetUniformLocation(objProgram, "pointLights[0].constant"), lights[0].constant);
-    glUniform1f(glGetUniformLocation(objProgram, "pointLights[0].linear"), lights[0].linear);
-    glUniform1f(glGetUniformLocation(objProgram, "pointLights[0].quadratic"), lights[0].quadratic);
+    glUseProgram(objProgram.program); 
+    glUniform3fv(glGetUniformLocation(objProgram.program, "pointLights[0].position"), 1, lights[0].pos);
+    glUniform3fv(glGetUniformLocation(objProgram.program, "pointLights[0].ambient"), 1, lights[0].ambient);
+    glUniform3fv(glGetUniformLocation(objProgram.program, "pointLights[0].diffuse"), 1, lights[0].diffuse);
+    glUniform3fv(glGetUniformLocation(objProgram.program, "pointLights[0].specular"), 1, lights[0].specular);
+    glUniform1f(glGetUniformLocation(objProgram.program, "pointLights[0].constant"), lights[0].constant);
+    glUniform1f(glGetUniformLocation(objProgram.program, "pointLights[0].linear"), lights[0].linear);
+    glUniform1f(glGetUniformLocation(objProgram.program, "pointLights[0].quadratic"), lights[0].quadratic);
 
-    glUniform3fv(glGetUniformLocation(objProgram, "pointLights[1].position"), 1, lights[1].pos);
-    glUniform3fv(glGetUniformLocation(objProgram, "pointLights[1].ambient"), 1, lights[1].ambient);
-    glUniform3fv(glGetUniformLocation(objProgram, "pointLights[1].diffuse"), 1, lights[1].diffuse);
-    glUniform3fv(glGetUniformLocation(objProgram, "pointLights[1].specular"), 1, lights[1].specular);
-    glUniform1f(glGetUniformLocation(objProgram, "pointLights[1].constant"), lights[1].constant);
-    glUniform1f(glGetUniformLocation(objProgram, "pointLights[1].linear"), lights[1].linear);
-    glUniform1f(glGetUniformLocation(objProgram, "pointLights[1].quadratic"), lights[1].quadratic);
+    glUniform3fv(glGetUniformLocation(objProgram.program, "pointLights[1].position"), 1, lights[1].pos);
+    glUniform3fv(glGetUniformLocation(objProgram.program, "pointLights[1].ambient"), 1, lights[1].ambient);
+    glUniform3fv(glGetUniformLocation(objProgram.program, "pointLights[1].diffuse"), 1, lights[1].diffuse);
+    glUniform3fv(glGetUniformLocation(objProgram.program, "pointLights[1].specular"), 1, lights[1].specular);
+    glUniform1f(glGetUniformLocation(objProgram.program, "pointLights[1].constant"), lights[1].constant);
+    glUniform1f(glGetUniformLocation(objProgram.program, "pointLights[1].linear"), lights[1].linear);
+    glUniform1f(glGetUniformLocation(objProgram.program, "pointLights[1].quadratic"), lights[1].quadratic);
     
-    glUniform3fv(glGetUniformLocation(objProgram, "pointLights[2].position"), 1, lights[2].pos);
-    glUniform3fv(glGetUniformLocation(objProgram, "pointLights[2].ambient"), 1, lights[2].ambient);
-    glUniform3fv(glGetUniformLocation(objProgram, "pointLights[2].diffuse"), 1, lights[2].diffuse);
-    glUniform3fv(glGetUniformLocation(objProgram, "pointLights[2].specular"), 1, lights[2].specular);
-    glUniform1f(glGetUniformLocation(objProgram, "pointLights[2].constant"), lights[2].constant);
-    glUniform1f(glGetUniformLocation(objProgram, "pointLights[2].linear"), lights[2].linear);
-    glUniform1f(glGetUniformLocation(objProgram, "pointLights[2].quadratic"), lights[2].quadratic);
+    glUniform3fv(glGetUniformLocation(objProgram.program, "pointLights[2].position"), 1, lights[2].pos);
+    glUniform3fv(glGetUniformLocation(objProgram.program, "pointLights[2].ambient"), 1, lights[2].ambient);
+    glUniform3fv(glGetUniformLocation(objProgram.program, "pointLights[2].diffuse"), 1, lights[2].diffuse);
+    glUniform3fv(glGetUniformLocation(objProgram.program, "pointLights[2].specular"), 1, lights[2].specular);
+    glUniform1f(glGetUniformLocation(objProgram.program, "pointLights[2].constant"), lights[2].constant);
+    glUniform1f(glGetUniformLocation(objProgram.program, "pointLights[2].linear"), lights[2].linear);
+    glUniform1f(glGetUniformLocation(objProgram.program, "pointLights[2].quadratic"), lights[2].quadratic);
    
-    glUniform3f(glGetUniformLocation(objProgram, "dirLight.direction"), 0.2f, -0.4f, 0.2f);
-    glUniform3f(glGetUniformLocation(objProgram, "dirLight.ambient"), 0.1f, 0.0f, 0.2f);
-    glUniform3f(glGetUniformLocation(objProgram, "dirLight.diffuse"), 0.2f, 0.5f, 1.0f);
-    glUniform3f(glGetUniformLocation(objProgram, "dirLight.specular"), 0.0f, 1.0f, 1.0f);
+    glUniform3f(glGetUniformLocation(objProgram.program, "dirLight.direction"), 0.2f, -0.4f, 0.2f);
+    glUniform3f(glGetUniformLocation(objProgram.program, "dirLight.ambient"), 0.1f, 0.0f, 0.2f);
+    glUniform3f(glGetUniformLocation(objProgram.program, "dirLight.diffuse"), 0.2f, 0.5f, 1.0f);
+    glUniform3f(glGetUniformLocation(objProgram.program, "dirLight.specular"), 0.0f, 1.0f, 1.0f);
     
     unsigned long now = SDL_GetPerformanceCounter();
     unsigned long last = 0;
     double deltaTime = 0;
-    int running = 1;
+    int32_t running = 1;
     const float speed = 15.0f;
 
     bool polygonRender = false;
@@ -216,20 +238,20 @@ int main() {
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glUseProgram(objProgram);
-        glUniform3fv(glGetUniformLocation(objProgram, "viewPos"), 1, cam.transformation.position); 
-        glUniform3fv(glGetUniformLocation(objProgram, "light.direction"), 1, lightPos);
+        glUseProgram(objProgram.program);
+        glUniform3fv(glGetUniformLocation(objProgram.program, "viewPos"), 1, cam.transformation.position); 
+        glUniform3fv(glGetUniformLocation(objProgram.program, "light.direction"), 1, lightPos);
 
-        updateObject(&backpack, cam, objProgram);
-        updateObject(&ground, cam, objProgram); 
-        updateObject(&light, cam, lightProgram); 
-        for (int i = 0; i < 3; i++) {
-            translate(&light.transformation, lights[i].pos);
-            drawObject(&light, lightProgram);
+        updateObject(&backpack);
+        updateObject(&ground); 
+        for (int32_t i = 0; i < 3; i++) {
+            glm_vec3_copy(lights[i].pos, light[i].transformation.position);
+            updateObject(&light[i]); 
+            drawObject(&light[i], lightProgram, cam);
         }
        
-        drawObject(&ground, objProgram);
-        drawObject(&backpack, objProgram); 
+        drawObject(&ground, objProgram, cam);
+        drawObject(&backpack, objProgram, cam); 
         GLenum err = glGetError();
         if (err != 0)
             printf("GL error: %d\n", err);

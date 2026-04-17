@@ -10,15 +10,13 @@
 #ifndef OBJECT_H
 #define OBJECT_H
 #include <stdint.h>
-#include "../cglm/cglm.h" 
+#include <cglm.h> 
 
 #include "shader.h"
 #include "util/vector.h"
 #include "util/string.h"
 #include "transformation.h"
 #include "camera.h"
-
-#define NR_TEXTURE_MAPS 3
 
 typedef struct {
     vec3 pos;
@@ -90,10 +88,10 @@ typedef struct {
 // TODO: add illum model
 Vector loadMtlMesh(const char *path);  // returns a vector of PhongMaterial
 Object loadObject(const char *path);
-void drawObject(Object *this, uint32_t shader);
+void drawObject(Object *this, Shader shader, Camera cam);
 void deletePhongMaterial(PhongMaterial *material);
-void updateObject(Object *this, Camera cam, uint32_t shader);
+void updateObject(Object *this);
 void initMesh(Mesh *this); // bind opengl buffers
-void initObject(Object *this, uint32_t shader, bool hasMaterial, float winWidth, float winHeight); // setup uniform maps setup projection matrix 
+void initObject(Object *this, bool hasMaterial);
 
 #endif

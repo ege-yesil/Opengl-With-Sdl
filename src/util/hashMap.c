@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <limits.h>
 
 #include "string.h"
 #include "hashMap.h"
@@ -62,10 +63,42 @@ bool equalsStringHashMap(void *key1, void *key2) {
     return strcmp(k1, k2) == 0;
 }
 
+static void padCstr(HashMap *map, char *dst, const char *src) {
+    memset(dst, 0, map->keyStride);
+    strncpy(dst, src, map->keyStride - 1);
+}
+
+void addHashMap_cstr(HashMap *map, const char *key, void *val) {
+    char buffer[map->keyStride];
+    padCstr(map, buffer, key); 
+    addHashMap(map, buffer, val);
+}
+void addHashMap_cstr_i32(HashMap *map, const char *key, int32_t val) {
+    char buffer[map->keyStride];
+    padCstr(map, buffer, key); 
+    addHashMap(map, buffer, &val);
+}
+
+void *getHashMap_cstr(HashMap *map, const char *key) {
+    char buffer[map->keyStride];
+    padCstr(map, buffer, key); 
+    return getHashMap(map, buffer);
+}
+int32_t i32_getHashMap_cstr(HashMap *map, const char *key) {
+    char buffer[map->keyStride];
+    padCstr(map, buffer, key);
+    void *o = getHashMap(map, buffer);
+    if (o == NULL) return INT_MAX;
+    return *(int32_t*)o;
+}
+
 void freeHashMap(HashMap *map) {
     for (size_t i = 0; i < map->capacity; i++) {
-        free(map->entries[i].key);
-        free(map->entries[i].val);
+        if (map->entries[i].key != NULL)
+            free(map->entries[i].key);
+   
+        if (map->entries[i].val != NULL)
+            free(map->entries[i].val);
     }
     free(map->entries);
 }
@@ -91,9 +124,15 @@ void resizeHashMap(HashMap *map, size_t capacity) {
     free(oldMap);
 }
 
-size_t getHashMap(HashMap *map, void *key) {
+void *getHashMap(HashMap *map, void *key) {
+    size_t index = getHashMapIndex(map, key);
+    if (index == SIZE_MAX) return NULL;
+    return map->entries[index].val;
+}
+
+size_t getHashMapIndex(HashMap *map, void *key) {
     size_t index = map->hash(key) % map->capacity;
-    while (map->entries[index].occupation != EMPTY) {
+    while (map->entries[index].occupation != EMPTY && map->entries[index].occupation != DEAD) {
         if (map->equals(map->entries[index].key, key))
             return index;
  
@@ -103,12 +142,18 @@ size_t getHashMap(HashMap *map, void *key) {
 }
 
 void removeHashMap(HashMap *map, void *key) {
-    size_t index = getHashMap(map, key); 
+    size_t index = getHashMapIndex(map, key); 
     if (index == SIZE_MAX) return;
 
+    free(map->entries[index].key);
+    free(map->entries[index].val);
+    map->entries[index].key = NULL;
+    map->entries[index].val = NULL;
     map->entries[index].occupation = DEAD;
     map->size--;
 }
+
+
 
 void addHashMap(HashMap *map, void *key, void *val) {
     size_t index = map->hash(key) % map->capacity; 

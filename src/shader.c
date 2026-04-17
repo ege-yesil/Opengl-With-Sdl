@@ -1,5 +1,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "../stb_image.h"
+#include <cglm.h>
 #include "shader.h"
 #include "util/string.h"
 
@@ -60,12 +61,63 @@ uint32_t loadShader(const char *path, GLenum shaderType) {
     return out;
 }
 
-uint32_t createShaderProgram(uint32_t vertex, uint32_t fragment) {
-    uint32_t out = glCreateProgram();
-    glAttachShader(out, vertex);
-    glAttachShader(out, fragment);
+size_t checkUniforms(Shader this) {
+    size_t error = 0;
 
-    glLinkProgram(out);
+    CHECK_UNIFORM(this.vertexUniforms.model, "model");
+    CHECK_UNIFORM(this.vertexUniforms.view, "view");
+    CHECK_UNIFORM(this.vertexUniforms.projection, "projection");
+
+    CHECK_UNIFORM(this.materialUniforms.ambient, "material.ambientVec");
+    CHECK_UNIFORM(this.materialUniforms.diffuse, "material.diffuseVec");
+    CHECK_UNIFORM(this.materialUniforms.specular, "material.specularVec");
+    
+    for (int i = 0; i < NR_TEXTURE_MAPS; i++) {
+        char uniform[128];
+        sprintf(uniform, "material.diffuse[%d]", i);
+        CHECK_UNIFORM(this.materialUniforms.diffuseMaps[i], uniform);
+        sprintf(uniform, "material.specular[%d]", i);
+        CHECK_UNIFORM(this.materialUniforms.specularMaps[i], uniform); 
+    } 
+    return error;
+}
+
+void setupFragmentUniforms(Shader *this, enum LightingSystem system) {
+    glUseProgram(this->program);
+    if (system == PHONG) {
+        for (int i = 0; i < NR_TEXTURE_MAPS; i++) {
+            char uniform[128];
+            sprintf(uniform, "material.diffuse[%d]", i);
+            this->materialUniforms.diffuseMaps[i] = glGetUniformLocation(this->program, uniform);
+            sprintf(uniform, "material.specular[%d]", i);
+            this->materialUniforms.specularMaps[i] = glGetUniformLocation(this->program, uniform);
+        }
+
+        this->materialUniforms.ambient = glGetUniformLocation(this->program, "material.ambientVec");
+        this->materialUniforms.diffuse = glGetUniformLocation(this->program, "material.diffuseVec");
+        this->materialUniforms.specular = glGetUniformLocation(this->program, "material.specularVec");
+        this->materialUniforms.shininess = glGetUniformLocation(this->program, "material.shininess");
+    }
+}
+
+void setupVertexUniforms(Shader *this, size_t width, size_t height) {
+    glUseProgram(this->program);
+    this->vertexUniforms.model = glGetUniformLocation(this->program, "model"); 
+    this->vertexUniforms.view = glGetUniformLocation(this->program, "view");
+    this->vertexUniforms.projection = glGetUniformLocation(this->program, "projection"); 
+
+    //setup projection
+    mat4 projection = GLM_MAT4_IDENTITY_INIT;
+    glm_perspective(M_PI / 4.0F, (float)width / (float)height, 0.1f, 100.0f, projection);
+    glUniformMatrix4fv(this->vertexUniforms.projection, 1, GL_FALSE, projection[0]);
+}
+
+Shader createShader(uint32_t vertex, uint32_t fragment) {
+    Shader out = { 0 };
+    out.program  = glCreateProgram();
+    glAttachShader(out.program, vertex);
+    glAttachShader(out.program, fragment);
+    glLinkProgram(out.program);
 
     return out;
 }

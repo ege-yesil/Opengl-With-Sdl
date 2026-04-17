@@ -51,7 +51,7 @@ Vector loadMtlMesh(const char *path) {
             sMap++;
         }
     }
-    // one final push
+    
     pushVec(&o, &push, 1);
      
     fclose(file);
@@ -105,9 +105,9 @@ Object loadObject(const char *path) {
             }
             for (int i = 0; i < 3; i++) {
                 VertexKey key = { vertexIndex[i] - 1, normalIndex[i] - 1, uvIndex[i] - 1};
-                size_t existingIndex = getHashMap(&vertMap, &key);
-                if (existingIndex != SIZE_MAX) {
-                    pushVec(&o.mesh.indices, vertMap.entries[existingIndex].val, 1);
+                void *existingIndex = getHashMap(&vertMap, &key);
+                if (existingIndex != NULL) {
+                    pushVec(&o.mesh.indices, existingIndex, 1);
                 } else {
                     Vertex vert;
                     vec3 *v = getVec(&tempPos, key.v);
@@ -149,7 +149,7 @@ Object loadObject(const char *path) {
         }
     }
 
-    // if the object has one big submesh we need to push that
+    // push the final submesh
     pushVec(&o.mesh.subMeshes, &currentSubMesh, 1); 
     
     fclose(file);
@@ -164,18 +164,47 @@ Object loadObject(const char *path) {
 
 void bindTexture(Texture tex, size_t glTextureIndex, int32_t location) {
     glActiveTexture(GL_TEXTURE0 + glTextureIndex);
-    if (tex.id != 0) 
-        glBindTexture(GL_TEXTURE_2D, tex.id);
-     else
-         glBindTexture(GL_TEXTURE_2D, 0);
+    glBindTexture(GL_TEXTURE_2D, tex.id);
     glUniform1i(location, glTextureIndex);
 }
 
-void drawObject(Object *this, uint32_t shader) {
-    glUseProgram(shader);
-    glBindVertexArray(this->mesh.vao);
+void drawObject(Object *this, Shader shader, Camera cam) {
+    glUseProgram(shader.program);
+    // update model and view from last draw
+    mat4 view = GLM_MAT4_IDENTITY_INIT;
+    cameraToViewMatrix(cam, view);
+    glUniformMatrix4fv(shader.vertexUniforms.view, 1, GL_FALSE, view[0]);
+    glUniformMatrix4fv(shader.vertexUniforms.model, 1, GL_FALSE, this->transformation.model[0]);
     
-    // recompile the model matrix according to the changed transformation values
+    glBindVertexArray(this->mesh.vao);
+   
+    if (this->hasMaterial) {
+        for (size_t i = 0; i < this->mesh.subMeshes.size; i++) {
+            SubMesh *sub = (SubMesh*)getVec(&this->mesh.subMeshes, i);
+            PhongMaterial *mat = (PhongMaterial*)getVec(&this->materials, sub->materialIndex);
+            for (int32_t j = 0; j < NR_TEXTURE_MAPS; j++) {
+                int32_t location = shader.materialUniforms.diffuseMaps[j];
+                bindTexture(mat->diffuseMaps[j], j, location);
+                location = shader.materialUniforms.specularMaps[j];
+                bindTexture(mat->specularMaps[j], NR_TEXTURE_MAPS + j, location); 
+            }
+            glUniform3fv(shader.materialUniforms.ambient, 1, &mat->ambient[0]);
+            glUniform3fv(shader.materialUniforms.diffuse, 1, &mat->diffuse[0]);
+            glUniform3fv(shader.materialUniforms.specular, 1, &mat->specular[0]); 
+            glUniform1f(shader.materialUniforms.shininess, mat->shininess); 
+            
+            glDrawElements(GL_TRIANGLES, sub->indexCount, GL_UNSIGNED_INT, (void*)(sub->indexOffset * sizeof(uint32_t)));
+        }
+    } else {
+        glDrawElements(GL_TRIANGLES, this->mesh.indices.size, GL_UNSIGNED_INT, 0);
+    }
+}
+
+void deletePhongMaterial(PhongMaterial *material) {
+    free(material->name.str);
+}
+
+void updateObject(Object *this) {
     if (this->transformation.updated) {
         glm_mat4_identity(this->transformation.model);
         glm_translate(this->transformation.model, this->transformation.position);
@@ -187,37 +216,6 @@ void drawObject(Object *this, uint32_t shader) {
         glm_scale(this->transformation.model, this->transformation.scale);
         this->transformation.updated = false;
     }
-    glUniformMatrix4fv(this->vertexUniforms[0], 1, GL_FALSE, this->transformation.model[0]);
-
-    if (this->hasMaterial) {
-        for (size_t i = 0; i < this->mesh.subMeshes.size; i++) {
-            SubMesh *sub = (SubMesh*)getVec(&this->mesh.subMeshes, i);
-            PhongMaterial *mat = (PhongMaterial*)getVec(&this->materials, sub->materialIndex);
-            for (int32_t j = 0; j < NR_TEXTURE_MAPS; j++) {
-                bindTexture(mat->diffuseMaps[j], j, this->materialUniforms[j]);
-                bindTexture(mat->specularMaps[j], NR_TEXTURE_MAPS + j, this->materialUniforms[NR_TEXTURE_MAPS + j]);
-            }
-            glUniform3fv(this->materialUniforms[NR_TEXTURE_MAPS * 2], 1, &mat->ambient[0]);
-            glUniform3fv(this->materialUniforms[NR_TEXTURE_MAPS * 2 + 1], 1, &mat->diffuse[0]);
-            glUniform3fv(this->materialUniforms[NR_TEXTURE_MAPS * 2 + 2], 1, &mat->specular[0]); 
-            glUniform1f(this->materialUniforms[NR_TEXTURE_MAPS * 2 + 3], mat->shininess); 
-            glDrawElements(GL_TRIANGLES, sub->indexCount, GL_UNSIGNED_INT, (void*)(sub->indexOffset * sizeof(uint32_t)));
-        }
-    } else {
-        glDrawElements(GL_TRIANGLES, this->mesh.indices.size, GL_UNSIGNED_INT, 0);
-    }
-    glBindVertexArray(0);
-}
-
-void deletePhongMaterial(PhongMaterial *material) {
-    free(material->name.str);
-}
-
-void updateObject(Object *this, Camera cam, uint32_t shader) {
-    glUseProgram(shader);
-    mat4 view = GLM_MAT4_IDENTITY_INIT;
-    cameraToViewMatrix(cam, view);
-    glUniformMatrix4fv(this->vertexUniforms[1], 1, GL_FALSE, view[0]);
 }
 
 void initMesh(Mesh *this) {
@@ -240,44 +238,13 @@ void initMesh(Mesh *this) {
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
-    
-    glBindVertexArray(0);
 }
 
-void initObject(Object *this, uint32_t shader, bool hasMaterial, float winWidth, float winHeight) {
+void initObject(Object *this, bool hasMaterial) {
     initMesh(&this->mesh);
     glm_vec3_zero(this->transformation.position); 
     glm_vec3_zero(this->transformation.orientation);
     glm_vec3_one(this->transformation.scale);
     this->transformation.updated = true;
     this->hasMaterial = hasMaterial;
-    glUseProgram(shader);
-    if (hasMaterial) {
-        for (int i = 0; i < NR_TEXTURE_MAPS; i++) {
-            char uniform[128];
-            sprintf(uniform, "material.diffuse[%d]", i);
-            this->materialUniforms[i] = glGetUniformLocation(shader, uniform);
-            sprintf(uniform, "material.specular[%d]", i);
-            this->materialUniforms[NR_TEXTURE_MAPS + i] = glGetUniformLocation(shader, uniform);
-        }
-        
-        this->materialUniforms[NR_TEXTURE_MAPS * 2] = glGetUniformLocation(shader, "material.ambientVec");
-        this->materialUniforms[NR_TEXTURE_MAPS * 2 + 1] = glGetUniformLocation(shader, "material.diffuseVec");
-        this->materialUniforms[NR_TEXTURE_MAPS * 2 + 2] = glGetUniformLocation(shader, "material.specularVec");
-        this->materialUniforms[NR_TEXTURE_MAPS * 2 + 3] = glGetUniformLocation(shader, "material.shininess");
-        for (size_t i = 0; i < NR_TEXTURE_MAPS * 2 + 4; i++) {
-            if (this->materialUniforms[i] == -1) printf("Could not recieve fragment uniform for %ld index\n", i);
-        }
-    }
-
-    this->vertexUniforms[0] = glGetUniformLocation(shader, "model");
-    this->vertexUniforms[1] = glGetUniformLocation(shader, "view");
-    this->vertexUniforms[2] = glGetUniformLocation(shader, "projection");
-    for (size_t i = 0; i < 3; i++) {
-        if (this->vertexUniforms[i] == -1) printf("Could not reciece vertex uniform for %ld index\n", i);
-    }
-    //setup projection
-    mat4 projection = GLM_MAT4_IDENTITY_INIT;
-    glm_perspective(M_PI / 4.0F, winWidth / winHeight, 0.1f, 100.0f, projection);
-    glUniformMatrix4fv(this->vertexUniforms[2], 1, GL_FALSE, projection[0]);
 }
