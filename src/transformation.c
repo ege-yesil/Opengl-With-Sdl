@@ -12,6 +12,11 @@ void translateWithOrientation(Transformation *this, vec3 v) {
     this->updated = true;
 }
 
+void scale(Transformation *this, vec3 v) {
+    glm_vec3_copy(v, this->scale);
+    this->updated = true;
+}
+
 void rotate(Transformation *this, float angle, vec3 axis) {
     versor tmp;
     glm_vec3_normalize(axis);

@@ -117,7 +117,6 @@ Object loadObject(const char *path) {
                     glm_vec3_copy(*vn, vert.normal);
                     glm_vec2_copy(*vt, vert.uv);
                     vert.uv[1] = 1.0f - vert.uv[1];
-                    vert.pos[1] = 1.0f - vert.pos[1];
                     
                     uint32_t newIndex = o.mesh.vertices.size;
                     pushVec(&o.mesh.vertices, &vert, 1);
@@ -132,12 +131,16 @@ Object loadObject(const char *path) {
             String parent = getParentDir(path); 
             String full = mergeDir(parent.str, mtlFile); 
             o.materials = loadMtlMesh(full.str);
+            if (o.materials.stride == 0) {
+                printf("material file %s is missing", mtlFile);
+            }
             free(full.str);
             free(parent.str);
         } else if (strcmp(lineHeader, "usemtl") == 0) {
             char mtl[128];
             fscanf(file, "%127s\n", mtl);
             for (size_t i = 0; i < o.materials.size; i++) {
+                if (o.materials.stride == 0) break;
                 PhongMaterial material = *(PhongMaterial*)getVec(&o.materials, i);
                 if (strcmp(material.name.str, mtl) == 0) {
                     if (currentSubMesh.indexCount !=  0)

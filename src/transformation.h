@@ -12,6 +12,7 @@ typedef struct {
 
 void translate(Transformation *this, vec3 v);
 void translateWithOrientation(Transformation *this, vec3 v);
+void scale(Transformation *this, vec3 v);
 void rotate(Transformation *this, float angle, vec3 axis);
 
 #endif

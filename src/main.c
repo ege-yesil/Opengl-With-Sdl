@@ -46,18 +46,7 @@ struct PointLight {
     float quadratic;
 }; 
 
-void test() {
-    HashMap map = makeHashMap(sizeof(char) * 32, sizeof(int32_t));
-    map.hash = stringHash;
-    map.equals = equalsStringHashMap;
-    int32_t b = 32;
-    addHashMap_cstr_i32(&map, "yo", 32);
-    int32_t a = i32_getHashMap_cstr(&map, "yo");
-    printf("%d", a);
-}
-
 int32_t main() {
-    test();
     uint32_t winWidth = 1080, winHeight = 800;
     SDL_Window *win = setupSDL(winWidth, winHeight);   
     
@@ -68,7 +57,7 @@ int32_t main() {
     printf("GL version: %s\n", glGetString(GL_VERSION));
     
     glEnable(GL_DEPTH_TEST);     
-    
+
     uint32_t vert = loadShader("src/shaders/vertex.glsl", GL_VERTEX_SHADER);
     if (vert == 0) printf("\ncouldnt load vertex shader");
     uint32_t objFrag = loadShader("src/shaders/objectFragment.glsl", GL_FRAGMENT_SHADER);
@@ -100,22 +89,11 @@ int32_t main() {
     initObject(&ground, true);
    
     translate(&backpack.transformation, (vec3){ 1, 2, 2 });
-    translate(&ground.transformation, (vec3){ 0, 10, 0 });
+    translate(&ground.transformation, (vec3){ 0, -10, 0 });
     
-    glUseProgram(objProgram.program);
-    glUniform3f(glGetUniformLocation(objProgram.program, "light.ambient"), 0.2f, 0.2f, 0.2f);
-    glUniform3f(glGetUniformLocation(objProgram.program, "light.diffuse"), 1.0f, 1.0f, 1.0f);
-    glUniform3f(glGetUniformLocation(objProgram.program, "light.specular"), 1.0f, 1.0f, 1.0f);
-    
-    glUniform1f(glGetUniformLocation(objProgram.program, "light.constant"), 1.0f);
-    glUniform1f(glGetUniformLocation(objProgram.program, "light.linear"), 0.009f);
-    glUniform1f(glGetUniformLocation(objProgram.program, "light.quadratic"), 0.032f);
-
     // camera and transformations 
     Camera cam = camInit();
     cam.sensitivity = 0.2;
-    translate(&cam.transformation, (vec3){ 0.0f, -1.0f, -3.0f });
-    rotate(&cam.transformation, M_PI, (vec3){ 1.0f, 0.0f, 0.0f });
 
     vec3 lightPos = { 4.0f, -3.0f, -1.0f};
     glUniform3fv(glGetUniformLocation(objProgram.program, "lightPos"), 1, lightPos);
@@ -176,9 +154,9 @@ int32_t main() {
     glUniform1f(glGetUniformLocation(objProgram.program, "pointLights[2].quadratic"), lights[2].quadratic);
    
     glUniform3f(glGetUniformLocation(objProgram.program, "dirLight.direction"), 0.2f, -0.4f, 0.2f);
-    glUniform3f(glGetUniformLocation(objProgram.program, "dirLight.ambient"), 0.1f, 0.0f, 0.2f);
-    glUniform3f(glGetUniformLocation(objProgram.program, "dirLight.diffuse"), 0.2f, 0.5f, 1.0f);
-    glUniform3f(glGetUniformLocation(objProgram.program, "dirLight.specular"), 0.0f, 1.0f, 1.0f);
+    glUniform3f(glGetUniformLocation(objProgram.program, "dirLight.ambient"), 0.0f, 0.0f, 0.0f);
+    glUniform3f(glGetUniformLocation(objProgram.program, "dirLight.diffuse"), 0.0f, 0.2f, 0.0f);
+    glUniform3f(glGetUniformLocation(objProgram.program, "dirLight.specular"), 0.0f, 0.2f, 0.3f);
     
     unsigned long now = SDL_GetPerformanceCounter();
     unsigned long last = 0;
